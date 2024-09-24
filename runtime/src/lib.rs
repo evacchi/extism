@@ -35,6 +35,10 @@ mod timer;
 /// Extism C API
 pub mod sdk;
 
+/// Extism JNI API
+pub mod jni;
+
+
 pub use current_plugin::CurrentPlugin;
 pub use extism_convert::{FromBytes, FromBytesOwned, ToBytes};
 pub use extism_manifest::{Manifest, Wasm, WasmMetadata};

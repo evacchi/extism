@@ -6,7 +6,7 @@ use crate::*;
 
 pub type ExtismMemoryHandle = u64;
 pub type Size = u64;
-pub struct ExtismFunction(std::cell::Cell<Option<Function>>);
+pub struct ExtismFunction(pub(crate) std::cell::Cell<Option<Function>>);
 
 /// The return code used to specify a successful plugin call
 pub static EXTISM_SUCCESS: i32 = 0;
@@ -20,18 +20,18 @@ fn make_error_msg(s: String) -> Vec<u8> {
 /// A union type for host function argument/return values
 #[repr(C)]
 pub union ValUnion {
-    i32: i32,
-    i64: i64,
-    f32: f32,
-    f64: f64,
+    pub(crate) i32: i32,
+    pub(crate) i64: i64,
+    pub(crate) f32: f32,
+    pub(crate) f64: f64,
     // TODO: v128, ExternRef, FuncRef
 }
 
 /// `ExtismVal` holds the type and value of a function argument/return
 #[repr(C)]
 pub struct ExtismVal {
-    t: ValType,
-    v: ValUnion,
+    pub(crate) t: ValType,
+    pub(crate) v: ValUnion,
 }
 
 /// Host function signature
@@ -48,7 +48,7 @@ pub type ExtismFunctionType = extern "C" fn(
 pub type ExtismLogDrainFunctionType = extern "C" fn(data: *const std::ffi::c_char, size: Size);
 
 impl ExtismVal {
-    fn from_val(value: &wasmtime::Val, ctx: impl AsContext) -> Self {
+    pub(crate) fn from_val(value: &wasmtime::Val, ctx: impl AsContext) -> Self {
         match value.ty(ctx) {
             wasmtime::ValType::I32 => ExtismVal {
                 t: ValType::I32,
@@ -78,6 +78,18 @@ impl ExtismVal {
         }
     }
 }
+
+pub(crate) fn val_as_raw(value: &wasmtime::Val, ctx: impl AsContext) -> u64 {
+    match value.ty(ctx) {
+        wasmtime::ValType::I32 => value.unwrap_i32() as u64,
+        wasmtime::ValType::I64 => value.unwrap_i64() as u64,
+        wasmtime::ValType::F32 => value.unwrap_f32() as u64,
+        wasmtime::ValType::F64 => value.unwrap_f64() as u64,
+        t => todo!("{}", t),
+    }
+}
+
+
 
 /// Get a plugin's ID, the returned bytes are a 16 byte buffer that represent a UUIDv4
 #[no_mangle]

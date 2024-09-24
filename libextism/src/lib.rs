@@ -1,6 +1,7 @@
 //! This crate is used to generate `libextism` using `extism-runtime`
 
 pub use extism::sdk::*;
+pub use extism::jni::*;
 
 #[cfg(test)]
 #[test]
