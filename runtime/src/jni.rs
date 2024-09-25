@@ -1,30 +1,25 @@
 use core::slice;
 use std::{
-    cell::{Cell, OnceCell},
-    ffi::{c_void, CStr, CString},
-    io::{stdout, Write},
-    ptr::{addr_of, null, null_mut},
-    sync::OnceLock,
-    thread::{self, panicking},
-    time::Duration,
+    ffi::{c_void, CStr},
+    ptr::{addr_of, null_mut},
 };
 
 use extism::{
-    sdk::{
-        self, extism_current_plugin_memory, extism_current_plugin_memory_alloc,
-        extism_current_plugin_memory_free, extism_current_plugin_memory_length,
-        extism_function_free, extism_function_new, extism_plugin_call, extism_plugin_error,
-        extism_plugin_new, extism_plugin_new_with_fuel_limit, extism_plugin_output_data,
-        extism_plugin_output_length, ExtismFunction, ExtismFunctionType, ExtismMemoryHandle,
-        ExtismVal, Size,
-    },
+    sdk::{*},
     CurrentPlugin, Function, Plugin, UserData, ValType,
 };
 use jni_simple::*;
 use libc::c_char;
 use wasmtime::Val;
 
-use crate::sdk::{extism_plugin_new_error_free, val_as_raw, ValUnion};
+use crate::{
+    extism_version,
+    sdk::{
+        extism_function_set_namespace, extism_plugin_cancel, extism_plugin_cancel_handle,
+        extism_plugin_config, extism_plugin_free, extism_plugin_new_error_free, val_as_raw,
+    },
+    CancelHandle,
+};
 
 static mut JVM: Option<JavaVM> = Option::None;
 
@@ -49,7 +44,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
     n_outputs: jint,
     callback: jobject,
     user_data: jobject,
-    free_user_data: jlong,
+    _free_user_data: jlong,
 ) -> jlong {
     let inputs_arr = env.GetIntArrayElements(raw_input_types, null_mut());
     let outputs_arr = env.GetIntArrayElements(raw_output_types, null_mut());
@@ -223,7 +218,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1pl
     plugin_ptr: jlong,
     n: jlong,
 ) -> jlong {
-    return extism_current_plugin_memory_alloc(plugin_ptr as *mut CurrentPlugin, n as sdk::Size)
+    return extism_current_plugin_memory_alloc(plugin_ptr as *mut CurrentPlugin, n as Size)
         as jlong;
 }
 #[no_mangle]
@@ -366,10 +361,11 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
  */
 #[no_mangle]
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1version(
-    _env: JNIEnv,
+    env: JNIEnv,
     _this: jobject,
 ) -> jstring {
-    return null_mut();
+    let v = extism_version();
+    return env.NewStringUTF_str(v);
 }
 
 /*
@@ -451,9 +447,9 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1out
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1free(
     _env: JNIEnv,
     _this: jobject,
-    _plugin_ptr: jlong,
-) -> jlong {
-    return 0;
+    plugin_ptr: jlong,
+) {
+    extism_plugin_free(plugin_ptr as *mut Plugin);
 }
 
 /*
@@ -464,13 +460,19 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1fre
 
 #[no_mangle]
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1config(
-    _env: JNIEnv,
+    env: JNIEnv,
     _this: jobject,
-    _plugin_ptr: jlong,
-    _json: jbyteArray,
-    _json_len: jint,
+    plugin_ptr: jlong,
+    json: jbyteArray,
+    json_len: jint,
 ) -> jboolean {
-    return true;
+    let mut buf = vec![0i8; json_len as usize];
+    env.GetByteArrayRegion(json, 0, json_len as i32, buf.as_mut_ptr());
+    extism_plugin_config(
+        plugin_ptr as *mut Plugin,
+        buf.as_ptr() as *const u8,
+        json_len as u64,
+    )
 }
 
 /*
@@ -482,9 +484,9 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1con
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1cancel_1handle(
     _env: JNIEnv,
     _this: jobject,
-    _plugin_ptr: jlong,
+    plugin_ptr: jlong,
 ) -> jlong {
-    return 0;
+    extism_plugin_cancel_handle(plugin_ptr as *const Plugin) as jlong
 }
 
 /*
@@ -496,9 +498,9 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1can
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1cancel(
     _env: JNIEnv,
     _this: jobject,
-    _cancel_handle: jlong,
+    cancel_handle: jlong,
 ) -> jboolean {
-    return true;
+    extism_plugin_cancel(cancel_handle as *const CancelHandle)
 }
 
 /*
@@ -508,9 +510,11 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1can
  */
 #[no_mangle]
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1set_1namespace(
-    _env: JNIEnv,
+    env: JNIEnv,
     _this: jobject,
-    _p: jlong,
-    _name: jstring,
+    p: jlong,
+    name: jstring,
 ) {
+    let namespace = env.GetStringUTFChars(name, null_mut());
+    extism_function_set_namespace(p as *mut ExtismFunction, namespace);
 }
