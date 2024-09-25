@@ -307,12 +307,23 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
     function_ptrs: jlongArray,
     n_funcs: jint,
     wasi: jboolean,
-    errmsg: jlongArray,
+    errmsg: jobjectArray,
 ) -> jlong {
-    return extism_plugin_new(
+
+    let mut err: *mut i8 = null_mut();
+
+    let p = extism_plugin_new(
       env.GetByteArrayElements(wasm, null_mut()) as *const u8, wasm_size as u64, 
       env.GetLongArrayElements(function_ptrs, null_mut()) as *mut *const ExtismFunction, n_funcs as u64, 
-      wasi, errmsg as *mut*mut i8) as jlong
+      wasi, &mut err);
+
+    if !err.is_null() {
+        let s = env.NewStringUTF(err);
+        env.SetObjectArrayElement(errmsg, 0, s);
+        extism_plugin_new_error_free(err);    
+    }
+
+    return p as jlong;
 }
 
 /*
