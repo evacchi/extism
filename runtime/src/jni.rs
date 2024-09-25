@@ -31,7 +31,7 @@ unsafe fn vm() -> JavaVM {
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1new(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1function_1new(
     env: JNIEnv,
     _this: jobject,
     name: jstring,
@@ -102,7 +102,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
 
             let env = vm().GetEnv(JNI_VERSION_1_8).unwrap();
 
-            let clazz = env.FindClass_str("org/extism/sdk/LibExtism0$InternalExtismFunction");
+            let clazz = env.FindClass_str("org/extism/sdk/LibExtism$InternalExtismFunction");
             let method_id = env.GetMethodID_str(clazz, "invoke", "(J[JI[JIJ)V");
 
             let p: jtype = (addr_of!(*plugin) as jlong).into();
@@ -168,12 +168,12 @@ fn conv(i: i32) -> ValType {
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_function_free
  * Signature: (J)V
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1free(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1function_1free(
     _env: JNIEnv,
     _this: jobject,
     func_ptr: jlong,
@@ -182,7 +182,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1f
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1plugin_1memory_1length(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1current_1plugin_1memory_1length(
     _env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -195,7 +195,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1pl
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1plugin_1memory(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1current_1plugin_1memory(
     env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -209,7 +209,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1pl
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1plugin_1memory_1alloc(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1current_1plugin_1memory_1alloc(
     _env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -219,7 +219,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1pl
         as jlong;
 }
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1plugin_1memory_1free(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1current_1plugin_1memory_1free(
     _env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -229,12 +229,12 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1pl
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_log_file
  * Signature: (Ljava/lang/String;Ljava/lang/String;)Z
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1log_1file(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1log_1file(
     _env: JNIEnv,
     _this: jobject,
     _path: jstring,
@@ -244,12 +244,12 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1log_1file(
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_error
  * Signature: (J)Ljava/lang/String;
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1error(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1error(
     env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -259,12 +259,12 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1err
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_new
  * Signature: ([BJ[JIZ[J)J
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1new(
     env: JNIEnv,
     _this: jobject,
     wasm: jbyteArray,
@@ -295,12 +295,12 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_new_with_fuel_limit
  * Signature: ([BJ[JIZJ[J)J
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new_1with_1fuel_1limit(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1new_1with_1fuel_1limit(
     env: JNIEnv,
     _this: jobject,
     wasm: jbyteArray,
@@ -323,12 +323,12 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_new_error_get
  * Signature: (J)Ljava/lang/String;
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new_1error_1get(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1new_1error_1get(
     env: JNIEnv,
     _this: jobject,
     err: jlong,
@@ -338,12 +338,12 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_new_error_free
  * Signature: (J)V
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new_1error_1free(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1new_1error_1free(
     _env: JNIEnv,
     _this: jobject,
     errmsg: jlong,
@@ -352,12 +352,12 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_version
  * Signature: ()Ljava/lang/String;
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1version(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1version(
     env: JNIEnv,
     _this: jobject,
 ) -> jstring {
@@ -366,13 +366,13 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1version(
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_call
  * Signature: (Lcom/sun/jna/Pointer;Ljava/lang/String;[BI)I
  */
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1call(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1call(
     env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -393,13 +393,13 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1cal
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_output_length
  * Signature: (J)I
  */
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1output_1length(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1output_1length(
     _env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -408,13 +408,13 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1out
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_output_data
  * Signature: (J)J
  */
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1output_1data(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1output_1data(
     env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -435,13 +435,13 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1out
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_free
  * Signature: (J)V
  */
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1free(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1free(
     _env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -450,13 +450,13 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1fre
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_config
  * Signature: (J[BI)Z
  */
 
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1config(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1config(
     env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -473,12 +473,12 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1con
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_cancel_handle
  * Signature: (J)J
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1cancel_1handle(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1cancel_1handle(
     _env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
@@ -487,12 +487,12 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1can
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_plugin_cancel
  * Signature: (J)Z
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1cancel(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1cancel(
     _env: JNIEnv,
     _this: jobject,
     cancel_handle: jlong,
@@ -501,12 +501,12 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1can
 }
 
 /*
- * Class:     org_extism_sdk_LibExtism0
+ * Class:     org_extism_sdk_LibExtism
  * Method:    extism_function_set_namespace
  * Signature: (JLjava/lang/String;)V
  */
 #[no_mangle]
-pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1set_1namespace(
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1function_1set_1namespace(
     env: JNIEnv,
     _this: jobject,
     p: jlong,
