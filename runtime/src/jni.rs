@@ -164,19 +164,21 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
             //     }
             // }
 
-            env.GetLongArrayRegion(out_arr, 0, output_len as i32, output_ptr as *mut i64);
-            let outs = slice::from_raw_parts(output_ptr, output_len as usize);
+            if !output_ptr.is_null() {
+                env.GetLongArrayRegion(out_arr, 0, output_len as i32, output_ptr as *mut i64);
+                let outs = slice::from_raw_parts(output_ptr, output_len as usize);
 
-            for i in 0..output_len {
-                let iu = i as usize;
-                let t = &output_types[iu];
-                let v = outs[iu];
-                match t {
-                    ValType::I32 => outputs[iu] = Val::I32(v as i32),
-                    ValType::I64 => outputs[iu] = Val::I64(v as i64),
-                    ValType::F32 => outputs[iu] = Val::F32(v as u32),
-                    ValType::F64 => outputs[iu] = Val::F64(v as u64),
-                    _ => todo!(),
+                for i in 0..output_len {
+                    let iu = i as usize;
+                    let t = &output_types[iu];
+                    let v = outs[iu];
+                    match t {
+                        ValType::I32 => outputs[iu] = Val::I32(v as i32),
+                        ValType::I64 => outputs[iu] = Val::I64(v as i64),
+                        ValType::F32 => outputs[iu] = Val::F32(v as u32),
+                        ValType::F64 => outputs[iu] = Val::F64(v as u64),
+                        _ => todo!(),
+                    }
                 }
             }
 
