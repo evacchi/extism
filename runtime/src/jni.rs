@@ -1,6 +1,6 @@
 use core::slice;
 use std::{
-    ffi::{c_void, CStr},
+    ffi::c_void,
     ptr::{addr_of, null_mut},
 };
 
@@ -146,8 +146,6 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1function_1ne
                 }
             }
 
-            println!("outputs: {:?}", outputs);
-
             Ok(())
         },
     );
@@ -204,7 +202,6 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1current_1plu
 ) -> jobject {
     let p: *mut u8 =
         extism_current_plugin_memory(plugin_ptr as *mut CurrentPlugin).add(off as usize);
-    println!("mem {:}", p as i64);
     return env.NewDirectByteBuffer(p as *mut c_void, sz);
 }
 
@@ -380,13 +377,9 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1call
     data: jbyteArray,
     data_len: jint,
 ) -> jint {
-    let chars = env.GetStringUTFChars(function_name, null_mut());
-    let fname = CStr::from_ptr(chars);
-    println!("{:?}", fname.to_str());
-
     return extism_plugin_call(
         plugin_ptr as *mut Plugin,
-        chars,
+        env.GetStringUTFChars(function_name, null_mut()),
         env.GetByteArrayElements(data, null_mut()) as *const u8,
         data_len as u64,
     );
@@ -422,9 +415,6 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1outp
     let p = plugin_ptr as *mut Plugin;
     let res = extism_plugin_output_data(p);
     let len = extism_plugin_output_length(p);
-
-    println!("output {:?} {}", res, len);
-
     if len == 0 {
         return null_mut();
     };
