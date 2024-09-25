@@ -4,10 +4,7 @@ use std::{
     ptr::{addr_of, null_mut},
 };
 
-use extism::{
-    sdk::{*},
-    CurrentPlugin, Function, Plugin, UserData, ValType,
-};
+use extism::{sdk::*, CurrentPlugin, Function, Plugin, UserData, ValType};
 use jni_simple::*;
 use libc::c_char;
 use wasmtime::Val;
@@ -154,7 +151,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
             Ok(())
         },
     );
-    Box::into_raw(Box::new(ExtismFunction(std::cell::Cell::new(Some(f))))) as jlong
+    Box::into_raw(Box::new(ExtismFunction::new(f))) as jlong
 }
 
 fn conv(i: i32) -> ValType {

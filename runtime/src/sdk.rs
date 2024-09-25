@@ -6,7 +6,13 @@ use crate::*;
 
 pub type ExtismMemoryHandle = u64;
 pub type Size = u64;
-pub struct ExtismFunction(pub(crate) std::cell::Cell<Option<Function>>);
+pub struct ExtismFunction(std::cell::Cell<Option<Function>>);
+
+impl ExtismFunction {
+    pub(crate) fn new(f: Function) -> ExtismFunction {
+        ExtismFunction(std::cell::Cell::new(Some(f)))
+    }
+}
 
 /// The return code used to specify a successful plugin call
 pub static EXTISM_SUCCESS: i32 = 0;
@@ -20,18 +26,18 @@ fn make_error_msg(s: String) -> Vec<u8> {
 /// A union type for host function argument/return values
 #[repr(C)]
 pub union ValUnion {
-    pub(crate) i32: i32,
-    pub(crate) i64: i64,
-    pub(crate) f32: f32,
-    pub(crate) f64: f64,
+    i32: i32,
+    i64: i64,
+    f32: f32,
+    f64: f64,
     // TODO: v128, ExternRef, FuncRef
 }
 
 /// `ExtismVal` holds the type and value of a function argument/return
 #[repr(C)]
 pub struct ExtismVal {
-    pub(crate) t: ValType,
-    pub(crate) v: ValUnion,
+    t: ValType,
+    v: ValUnion,
 }
 
 /// Host function signature
