@@ -130,7 +130,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
             let clazz = env.FindClass_str("org/extism/sdk/LibExtism0$InternalExtismFunction");
             let method_id = env.GetMethodID_str(clazz, "invoke", "(J[JI[JIJ)V");
     
-            let p: jtype = (addr_of!(plugin) as jlong).into();
+            let p: jtype = (addr_of!(*plugin) as jlong).into();
             let in_arr = env.NewLongArray(inputs_len as i32);
             env.SetLongArrayRegion(in_arr, 0, inputs_len as i32, inputs_ptr as *const i64);
 
@@ -153,8 +153,8 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
             // );
             
 
-            // for (tmp, out) in output_tmp.iter().zip(outputs.iter_mut()) {
-            //     match tmp.t {
+            // for (tmp, out) in output_types.iter().zip(outputs.iter_mut()) {
+            //     match tmp {
             //         ValType::I32 => *out = Val::I32(tmp.v.i32),
             //         ValType::I64 => *out = Val::I64(tmp.v.i64),
             //         ValType::F32 => *out = Val::F32(tmp.v.f32 as u32),
@@ -162,6 +162,29 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
             //         _ => todo!(),
             //     }
             // }
+
+            env.GetLongArrayRegion(out_arr, 0, output_len as i32, output_ptr as *mut i64);
+            let outs = slice::from_raw_parts(output_ptr, output_len as usize);
+
+            for i in 0..output_len {
+                let iu = i as usize;
+                let t = &output_types[iu];
+                let v = outs[iu];
+                match t {
+                    ValType::I32 => outputs[iu] = Val::I32(v as i32),
+                    ValType::I64 => outputs[iu] = Val::I64(v as i64),
+                    ValType::F32 => outputs[iu] = Val::F32(v as u32),
+                    ValType::F64 => outputs[iu] = Val::F64(v as u64),
+                    _ => todo!(),
+                }
+            }
+
+            println!("outputs: {:?}", outputs);
+
+
+
+
+
             Ok(())
         },
     );
@@ -208,11 +231,17 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1pl
 
 #[no_mangle]
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1plugin_1memory(
-    _env: JNIEnv,
+    env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
-) -> jlong {
-    return extism_current_plugin_memory(plugin_ptr as *mut CurrentPlugin) as i64
+    off: jlong,
+    sz: jlong,
+) -> jobject {
+    let p: *mut u8 = extism_current_plugin_memory(plugin_ptr as *mut CurrentPlugin).add(off as usize);
+    println!("mem {:}", p as i64);
+    return env.NewDirectByteBuffer(
+         p as *mut c_void,
+        sz);
 }
 
 #[no_mangle]
@@ -222,7 +251,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1pl
     plugin_ptr: jlong,
     n: jlong,
 ) -> jlong {
-    return extism_current_plugin_memory_alloc(plugin_ptr as *mut CurrentPlugin, n as sdk::Size) as i64;
+    return extism_current_plugin_memory_alloc(plugin_ptr as *mut CurrentPlugin, n as sdk::Size) as jlong;
 }
 #[no_mangle]
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1plugin_1memory_1free(
@@ -393,6 +422,9 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1out
     let p = plugin_ptr as *mut Plugin;
     let res = extism_plugin_output_data(p);
     let len = extism_plugin_output_length(p);
+
+    println!("output {:?} {}", res, len);
+
     if len == 0 {
       return null_mut();
     };
