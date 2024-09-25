@@ -49,19 +49,8 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1function_1ne
     let input_slice = slice::from_raw_parts(inputs_arr, n_inputs as usize);
     let output_slice = slice::from_raw_parts(outputs_arr, n_outputs as usize);
 
-    let mut input_types = vec![ValType::I32; n_inputs as usize];
-    let mut output_types = vec![ValType::I32; n_outputs as usize];
-    let mut i = 0;
-    for ele in input_slice {
-        input_types[i] = conv(*ele);
-        i += 1;
-    }
-
-    i = 0;
-    for ele in output_slice {
-        output_types[i] = conv(*ele);
-        i += 1;
-    }
+    let input_types: Vec<_> = input_slice.iter().map(|el| conv(*el)).collect();
+    let output_types: Vec<_> = output_slice.iter().map(|el| conv(*el)).collect();
 
     let name: String =
         match std::ffi::CStr::from_ptr(env.GetStringUTFChars(name, null_mut())).to_str() {
@@ -81,24 +70,8 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1function_1ne
         user_data,
         move |plugin, inputs, outputs, user_data| {
             let store = &*plugin.store;
-            let inputs: Vec<_> = inputs.iter().map(|x| val_as_raw(x, store)).collect();
+            let mut inputs: Vec<_> = inputs.iter().map(|x| val_as_raw(x, store)).collect();
             let mut output_tmp: Vec<_> = vec![0u64; n_outputs as usize];
-
-            // We cannot simply "get" the Vec's storage pointer because
-            // the underlying storage might be invalid when the Vec is empty.
-            // In that case, we return (null, 0).
-
-            let (inputs_ptr, inputs_len) = if inputs.is_empty() {
-                (core::ptr::null(), 0 as Size)
-            } else {
-                (inputs.as_ptr(), inputs.len() as Size)
-            };
-
-            let (output_ptr, output_len) = if output_tmp.is_empty() {
-                (null_mut(), 0 as Size)
-            } else {
-                (output_tmp.as_mut_ptr(), output_tmp.len() as Size)
-            };
 
             let env = vm().GetEnv(JNI_VERSION_1_8).unwrap();
 
@@ -106,12 +79,15 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1function_1ne
             let method_id = env.GetMethodID_str(clazz, "invoke", "(J[JI[JIJ)V");
 
             let p: jtype = (addr_of!(*plugin) as jlong).into();
-            let in_arr = env.NewLongArray(inputs_len as i32);
-            env.SetLongArrayRegion(in_arr, 0, inputs_len as i32, inputs_ptr as *const i64);
+            let in_arr = env.NewLongArray(inputs.len() as i32);
+            env.SetLongArrayRegion(
+                in_arr,
+                0,
+                inputs.len() as i32,
+                inputs.as_mut_ptr() as *const i64,
+            );
 
-            let out_arr = env.NewLongArray(output_len as i32);
-            env.SetLongArrayRegion(out_arr, 0, output_len as i32, output_ptr as *const i64);
-
+            let out_arr = env.NewLongArray(output_tmp.len() as i32);
             let d = addr_of!(user_data) as i64;
 
             env.CallVoidMethodA(
@@ -120,29 +96,25 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1function_1ne
                 [
                     p,
                     in_arr.into(),
-                    (inputs_len as i32).into(),
+                    (inputs.len() as i32).into(),
                     out_arr.into(),
-                    (output_len as i32).into(),
+                    (output_tmp.len() as i32).into(),
                     d.into(),
                 ]
                 .as_mut_ptr(),
             );
 
-            if !output_ptr.is_null() {
-                env.GetLongArrayRegion(out_arr, 0, output_len as i32, output_ptr as *mut i64);
-                let outs = slice::from_raw_parts(output_ptr, output_len as usize);
+            if !outputs.is_empty() {
+                env.GetLongArrayRegion(
+                    out_arr,
+                    0,
+                    output_tmp.len() as i32,
+                    output_tmp.as_mut_ptr() as *mut i64,
+                );
 
-                for i in 0..output_len {
+                for i in 0..output_tmp.len() {
                     let iu = i as usize;
-                    let t = &output_types[iu];
-                    let v = outs[iu];
-                    match t {
-                        ValType::I32 => outputs[iu] = Val::I32(v as i32),
-                        ValType::I64 => outputs[iu] = Val::I64(v as i64),
-                        ValType::F32 => outputs[iu] = Val::F32(v as u32),
-                        ValType::F64 => outputs[iu] = Val::F64(v as u64),
-                        _ => todo!(),
-                    }
+                    outputs[iu] = lift(output_tmp[iu], &output_types[iu])
                 }
             }
 
@@ -162,6 +134,16 @@ fn conv(i: i32) -> ValType {
         5 => ValType::FuncRef,
         6 => ValType::ExternRef,
         _ => panic!("Unknown value"),
+    }
+}
+
+fn lift(v: u64, t: &ValType) -> Val {
+    match t {
+        ValType::I32 => Val::I32(v as i32),
+        ValType::I64 => Val::I64(v as i64),
+        ValType::F32 => Val::F32(v as u32),
+        ValType::F64 => Val::F64(v as u64),
+        _ => todo!(),
     }
 }
 
@@ -306,17 +288,27 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism_extism_1plugin_1new_
     n_funcs: jint,
     wasi: jboolean,
     fuel: jlong,
-    errmsg: jlongArray,
+    errmsg: jobjectArray,
 ) -> jlong {
-    return extism_plugin_new_with_fuel_limit(
+    let mut err: *mut i8 = null_mut();
+
+    let p = extism_plugin_new_with_fuel_limit(
         env.GetByteArrayElements(wasm, null_mut()) as *const u8,
         wasm_size as u64,
         function_ptrs as *mut *const ExtismFunction,
         n_funcs as u64,
         wasi,
         fuel as u64,
-        errmsg as *mut *mut i8,
-    ) as jlong;
+        &mut err,
+    );
+
+    if !err.is_null() {
+        let s = env.NewStringUTF(err);
+        env.SetObjectArrayElement(errmsg, 0, s);
+        extism_plugin_new_error_free(err);
+    }
+
+    return p as jlong;
 }
 
 /*
