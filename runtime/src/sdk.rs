@@ -89,8 +89,6 @@ pub(crate) fn val_as_raw(value: &wasmtime::Val, ctx: impl AsContext) -> u64 {
     }
 }
 
-
-
 /// Get a plugin's ID, the returned bytes are a 16 byte buffer that represent a UUIDv4
 #[no_mangle]
 pub unsafe extern "C" fn extism_plugin_id(plugin: *mut Plugin) -> *const u8 {

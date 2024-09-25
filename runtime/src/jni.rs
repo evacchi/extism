@@ -1,55 +1,56 @@
 use core::slice;
-use std::{cell::{Cell, OnceCell}, ffi::{c_void, CStr, CString}, io::{stdout, Write}, ptr::{addr_of, null, null_mut}, sync::OnceLock, thread::{self, panicking}, time::Duration};
+use std::{
+    cell::{Cell, OnceCell},
+    ffi::{c_void, CStr, CString},
+    io::{stdout, Write},
+    ptr::{addr_of, null, null_mut},
+    sync::OnceLock,
+    thread::{self, panicking},
+    time::Duration,
+};
 
-use extism::{sdk::{self, extism_current_plugin_memory, extism_current_plugin_memory_alloc, extism_current_plugin_memory_free, extism_current_plugin_memory_length, extism_function_free, extism_function_new, extism_plugin_call, extism_plugin_error, extism_plugin_new, extism_plugin_new_with_fuel_limit, extism_plugin_output_data, extism_plugin_output_length, ExtismFunction, ExtismFunctionType, ExtismMemoryHandle, ExtismVal, Size}, CurrentPlugin, Function, Plugin, UserData, ValType};
-use jni_simple::{*};
+use extism::{
+    sdk::{
+        self, extism_current_plugin_memory, extism_current_plugin_memory_alloc,
+        extism_current_plugin_memory_free, extism_current_plugin_memory_length,
+        extism_function_free, extism_function_new, extism_plugin_call, extism_plugin_error,
+        extism_plugin_new, extism_plugin_new_with_fuel_limit, extism_plugin_output_data,
+        extism_plugin_output_length, ExtismFunction, ExtismFunctionType, ExtismMemoryHandle,
+        ExtismVal, Size,
+    },
+    CurrentPlugin, Function, Plugin, UserData, ValType,
+};
+use jni_simple::*;
 use libc::c_char;
 use wasmtime::Val;
 
 use crate::sdk::{extism_plugin_new_error_free, val_as_raw, ValUnion};
 
-
-
-// (JNIEnv *, jobject, jstring, jintArray, jint, jintArray, jint, jobject, jobject, jlong);
-
-static jvm: OnceLock<JavaVM> = OnceLock::new();
+static mut JVM: Option<JavaVM> = Option::None;
 
 #[no_mangle]
 pub unsafe extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut c_void) -> jint {
-
-    use std::io::Write; // <--- bring the trait into scope
-
-    //Optional: Only needed if you need to spawn "rust" threads that need to interact with the JVM.
-    jni_simple::init_dynamic_link(JNI_CreateJavaVM as *mut c_void, JNI_GetCreatedJavaVMs as *mut c_void);
-
-    //All error codes are jint, never JNI_OK. See JNI documentation for their meaning when you handle them.
-    //This is a Result<JNIEnv, jint>.
-    let env : JNIEnv = vm.GetEnv(JNI_VERSION_1_8).unwrap();
-    jvm.set(vm);
-
-
-    //This code does not check for failure or exceptions checks or "checks" for success in general.
-    let sys = env.FindClass_str("java/lang/System");
-    let nano_time = env.GetStaticMethodID_str(sys, "nanoTime", "()J");
-    let nanos = env.CallStaticLongMethodA(sys, nano_time, null());
-    println!("RUST: JNI_OnLoad {}", nanos);
-    stdout().flush().unwrap();
-
+    JVM = Some(vm);
     return JNI_VERSION_1_8;
 }
 
-struct DecoratedData{
-    callback: jobject,
-    userdata: jobject
+unsafe fn vm() -> JavaVM {
+    JVM.expect("The JavaVM reference was not initialized")
 }
-
 
 #[no_mangle]
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1new(
-  env: JNIEnv, _this: jobject, name: jstring, raw_input_types: jintArray, n_inputs: jint, 
-  raw_output_types: jintArray, n_outputs: jint, callback: jobject, user_data: jobject, free_user_data: jlong) -> jlong {
-
-
+    env: JNIEnv,
+    _this: jobject,
+    name: jstring,
+    raw_input_types: jintArray,
+    n_inputs: jint,
+    raw_output_types: jintArray,
+    n_outputs: jint,
+    callback: jobject,
+    user_data: jobject,
+    free_user_data: jlong,
+) -> jlong {
     let inputs_arr = env.GetIntArrayElements(raw_input_types, null_mut());
     let outputs_arr = env.GetIntArrayElements(raw_output_types, null_mut());
 
@@ -61,32 +62,22 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
     let mut i = 0;
     for ele in input_slice {
         input_types[i] = conv(*ele);
-        i+=1;
+        i += 1;
     }
 
-    i=0;
+    i = 0;
     for ele in output_slice {
-      output_types[i] = conv(*ele); 
-      i+=1;
+        output_types[i] = conv(*ele);
+        i += 1;
     }
 
-
-
-    let g = env.NewGlobalRef(callback);
-
-    let data = DecoratedData {
-        callback: g,
-        userdata: user_data
-    };
-
-
-    let boxed_data = Box::new(data);
-    let name: String = match std::ffi::CStr::from_ptr(env.GetStringUTFChars(name, null_mut())).to_str() {
-        Ok(x) => x.to_string(),
-        Err(_) => {
-            return 0;
-        }
-    };
+    let name: String =
+        match std::ffi::CStr::from_ptr(env.GetStringUTFChars(name, null_mut())).to_str() {
+            Ok(x) => x.to_string(),
+            Err(_) => {
+                return 0;
+            }
+        };
 
     let cback = env.NewGlobalRef(callback) as u64;
 
@@ -98,10 +89,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
         user_data,
         move |plugin, inputs, outputs, user_data| {
             let store = &*plugin.store;
-            let inputs: Vec<_> = inputs
-                .iter()
-                .map(|x| val_as_raw(x, store))
-                .collect();
+            let inputs: Vec<_> = inputs.iter().map(|x| val_as_raw(x, store)).collect();
             let mut output_tmp: Vec<_> = vec![0u64; n_outputs as usize];
 
             // We cannot simply "get" the Vec's storage pointer because
@@ -120,17 +108,11 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
                 (output_tmp.as_mut_ptr(), output_tmp.len() as Size)
             };
 
-            let env = jvm.get().unwrap().GetEnv(JNI_VERSION_1_8).unwrap();
+            let env = vm().GetEnv(JNI_VERSION_1_8).unwrap();
 
-            let sys = env.FindClass_str("java/lang/System");
-            let nano_time = env.GetStaticMethodID_str(sys, "nanoTime", "()J");
-            let nanos = env.CallStaticLongMethodA(sys, nano_time, null());
-            println!("RUST: JNI callback {} {}", name.clone(), nanos);    
-            stdout().flush().unwrap();
-        
             let clazz = env.FindClass_str("org/extism/sdk/LibExtism0$InternalExtismFunction");
             let method_id = env.GetMethodID_str(clazz, "invoke", "(J[JI[JIJ)V");
-    
+
             let p: jtype = (addr_of!(*plugin) as jlong).into();
             let in_arr = env.NewLongArray(inputs_len as i32);
             env.SetLongArrayRegion(in_arr, 0, inputs_len as i32, inputs_ptr as *const i64);
@@ -140,29 +122,19 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
 
             let d = addr_of!(user_data) as i64;
 
-            env.CallVoidMethodA(cback as jobject, method_id, [p, in_arr.into(), 
-                (inputs_len as i32).into(), out_arr.into(), (output_len as i32).into(), d.into()].as_mut_ptr());
-
-
-            // func(
-            //     plugin,
-            //     inputs_ptr,
-            //     inputs_len,
-            //     output_ptr,
-            //     output_len,
-            //     user_data.as_ptr(),
-            // );
-            
-
-            // for (tmp, out) in output_types.iter().zip(outputs.iter_mut()) {
-            //     match tmp {
-            //         ValType::I32 => *out = Val::I32(tmp.v.i32),
-            //         ValType::I64 => *out = Val::I64(tmp.v.i64),
-            //         ValType::F32 => *out = Val::F32(tmp.v.f32 as u32),
-            //         ValType::F64 => *out = Val::F64(tmp.v.f64 as u64),
-            //         _ => todo!(),
-            //     }
-            // }
+            env.CallVoidMethodA(
+                cback as jobject,
+                method_id,
+                [
+                    p,
+                    in_arr.into(),
+                    (inputs_len as i32).into(),
+                    out_arr.into(),
+                    (output_len as i32).into(),
+                    d.into(),
+                ]
+                .as_mut_ptr(),
+            );
 
             if !output_ptr.is_null() {
                 env.GetLongArrayRegion(out_arr, 0, output_len as i32, output_ptr as *mut i64);
@@ -184,19 +156,14 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1n
 
             println!("outputs: {:?}", outputs);
 
-
-
-
-
             Ok(())
         },
     );
     Box::into_raw(Box::new(ExtismFunction(std::cell::Cell::new(Some(f))))) as jlong
 }
 
-
-fn conv(i:i32) -> ValType {
-    match i  {
+fn conv(i: i32) -> ValType {
+    match i {
         0 => ValType::I32,
         1 => ValType::I64,
         2 => ValType::F32,
@@ -204,9 +171,9 @@ fn conv(i:i32) -> ValType {
         4 => ValType::V128,
         5 => ValType::FuncRef,
         6 => ValType::ExternRef,
-        _ => panic!("Unknown value")
+        _ => panic!("Unknown value"),
     }
-  }
+}
 
 /*
  * Class:     org_extism_sdk_LibExtism0
@@ -219,7 +186,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1function_1f
     _this: jobject,
     func_ptr: jlong,
 ) {
-  extism_function_free(func_ptr as *mut ExtismFunction);
+    extism_function_free(func_ptr as *mut ExtismFunction);
 }
 
 #[no_mangle]
@@ -229,7 +196,10 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1pl
     plugin_ptr: jlong,
     n: jlong,
 ) -> jint {
-    return extism_current_plugin_memory_length(plugin_ptr as *mut CurrentPlugin, n as ExtismMemoryHandle) as i32;
+    return extism_current_plugin_memory_length(
+        plugin_ptr as *mut CurrentPlugin,
+        n as ExtismMemoryHandle,
+    ) as i32;
 }
 
 #[no_mangle]
@@ -240,11 +210,10 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1pl
     off: jlong,
     sz: jlong,
 ) -> jobject {
-    let p: *mut u8 = extism_current_plugin_memory(plugin_ptr as *mut CurrentPlugin).add(off as usize);
+    let p: *mut u8 =
+        extism_current_plugin_memory(plugin_ptr as *mut CurrentPlugin).add(off as usize);
     println!("mem {:}", p as i64);
-    return env.NewDirectByteBuffer(
-         p as *mut c_void,
-        sz);
+    return env.NewDirectByteBuffer(p as *mut c_void, sz);
 }
 
 #[no_mangle]
@@ -254,15 +223,17 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1pl
     plugin_ptr: jlong,
     n: jlong,
 ) -> jlong {
-    return extism_current_plugin_memory_alloc(plugin_ptr as *mut CurrentPlugin, n as sdk::Size) as jlong;
+    return extism_current_plugin_memory_alloc(plugin_ptr as *mut CurrentPlugin, n as sdk::Size)
+        as jlong;
 }
 #[no_mangle]
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1current_1plugin_1memory_1free(
     _env: JNIEnv,
     _this: jobject,
     plugin_ptr: jlong,
-    ptr: jlong) {
-  extism_current_plugin_memory_free(plugin_ptr as *mut CurrentPlugin, ptr as ExtismMemoryHandle);
+    ptr: jlong,
+) {
+    extism_current_plugin_memory_free(plugin_ptr as *mut CurrentPlugin, ptr as ExtismMemoryHandle);
 }
 
 /*
@@ -311,18 +282,21 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
     wasi: jboolean,
     errmsg: jobjectArray,
 ) -> jlong {
-
     let mut err: *mut i8 = null_mut();
 
     let p = extism_plugin_new(
-      env.GetByteArrayElements(wasm, null_mut()) as *const u8, wasm_size as u64, 
-      env.GetLongArrayElements(function_ptrs, null_mut()) as *mut *const ExtismFunction, n_funcs as u64, 
-      wasi, &mut err);
+        env.GetByteArrayElements(wasm, null_mut()) as *const u8,
+        wasm_size as u64,
+        env.GetLongArrayElements(function_ptrs, null_mut()) as *mut *const ExtismFunction,
+        n_funcs as u64,
+        wasi,
+        &mut err,
+    );
 
     if !err.is_null() {
         let s = env.NewStringUTF(err);
         env.SetObjectArrayElement(errmsg, 0, s);
-        extism_plugin_new_error_free(err);    
+        extism_plugin_new_error_free(err);
     }
 
     return p as jlong;
@@ -345,12 +319,15 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
     fuel: jlong,
     errmsg: jlongArray,
 ) -> jlong {
-  return extism_plugin_new_with_fuel_limit(
-    env.GetByteArrayElements(wasm, null_mut()) as *const u8, wasm_size as u64, 
-    function_ptrs as *mut *const ExtismFunction, n_funcs as u64, 
-    wasi,
-    fuel as u64,
-    errmsg as *mut*mut i8) as jlong
+    return extism_plugin_new_with_fuel_limit(
+        env.GetByteArrayElements(wasm, null_mut()) as *const u8,
+        wasm_size as u64,
+        function_ptrs as *mut *const ExtismFunction,
+        n_funcs as u64,
+        wasi,
+        fuel as u64,
+        errmsg as *mut *mut i8,
+    ) as jlong;
 }
 
 /*
@@ -360,11 +337,13 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
  */
 #[no_mangle]
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new_1error_1get(
-    env: JNIEnv, _this: jobject, err: jlong) -> jstring {
+    env: JNIEnv,
+    _this: jobject,
+    err: jlong,
+) -> jstring {
     let errp = err as *mut c_char;
     return env.NewStringUTF(errp);
 }
-
 
 /*
  * Class:     org_extism_sdk_LibExtism0
@@ -408,16 +387,16 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1cal
     data: jbyteArray,
     data_len: jint,
 ) -> jint {
-
-  let chars = env.GetStringUTFChars(function_name, null_mut());
-  let fname = CStr::from_ptr(chars);
-  println!("{:?}", fname.to_str());
+    let chars = env.GetStringUTFChars(function_name, null_mut());
+    let fname = CStr::from_ptr(chars);
+    println!("{:?}", fname.to_str());
 
     return extism_plugin_call(
-      plugin_ptr as *mut Plugin, 
-      chars, 
-      env.GetByteArrayElements(data, null_mut()) as *const u8, 
-      data_len as u64);
+        plugin_ptr as *mut Plugin,
+        chars,
+        env.GetByteArrayElements(data, null_mut()) as *const u8,
+        data_len as u64,
+    );
 }
 
 /*
@@ -454,7 +433,7 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1out
     println!("output {:?} {}", res, len);
 
     if len == 0 {
-      return null_mut();
+        return null_mut();
     };
     let arr = env.NewByteArray(len as jsize);
     env.SetByteArrayRegion(arr, 0, len as jsize, res as *const i8);
