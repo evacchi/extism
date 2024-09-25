@@ -3,9 +3,10 @@ use std::{cell::{Cell, OnceCell}, ffi::{c_void, CStr, CString}, io::{stdout, Wri
 
 use extism::{sdk::{self, extism_current_plugin_memory, extism_current_plugin_memory_alloc, extism_current_plugin_memory_free, extism_current_plugin_memory_length, extism_function_free, extism_function_new, extism_plugin_call, extism_plugin_error, extism_plugin_new, extism_plugin_new_with_fuel_limit, extism_plugin_output_data, extism_plugin_output_length, ExtismFunction, ExtismFunctionType, ExtismMemoryHandle, ExtismVal, Size}, CurrentPlugin, Function, Plugin, UserData, ValType};
 use jni_simple::{*};
+use libc::c_char;
 use wasmtime::Val;
 
-use crate::sdk::{val_as_raw, ValUnion};
+use crate::sdk::{extism_plugin_new_error_free, val_as_raw, ValUnion};
 
 
 
@@ -341,6 +342,19 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
 
 /*
  * Class:     org_extism_sdk_LibExtism0
+ * Method:    extism_plugin_new_error_get
+ * Signature: (J)Ljava/lang/String;
+ */
+#[no_mangle]
+pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new_1error_1get(
+    env: JNIEnv, _this: jobject, err: jlong) -> jstring {
+    let errp = err as *mut c_char;
+    return env.NewStringUTF(errp);
+}
+
+
+/*
+ * Class:     org_extism_sdk_LibExtism0
  * Method:    extism_plugin_new_error_free
  * Signature: (J)V
  */
@@ -348,8 +362,9 @@ pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new
 pub unsafe extern "system" fn Java_org_extism_sdk_LibExtism0_extism_1plugin_1new_1error_1free(
     _env: JNIEnv,
     _this: jobject,
-    _errmsg: jlong,
+    errmsg: jlong,
 ) {
+    extism_plugin_new_error_free(errmsg as *mut c_char);
 }
 
 /*
